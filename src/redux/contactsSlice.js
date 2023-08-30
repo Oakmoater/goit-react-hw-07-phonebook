@@ -1,37 +1,80 @@
-import { createSlice, nanoid } from "@reduxjs/toolkit";
+import { createSlice, isAnyOf } from '@reduxjs/toolkit';
+import { addContact, deleteContact, fetchContacts } from './operations';
 
-const contactsInitialState = [
-  { id: 0, name: "George", number: "895-58-74" },
-  { id: 1, name: "Get good at JavaScript", number: "369-85-72" },
-  { id: 2, name: "Master React", number: "456-85-89" },
-  { id: 3, name: "Discover Redux", number: "051-75-98" },
-  { id: 4, name: "Build amazing apps", number: "742-86-32" },
-];
+// const initialItems = [
+//   { id: 'id-4', name: 'Annie Copeland', phone: '227-91-26' },
+//   { id: 'id-3', name: 'Eden Clements', phone: '645-17-79' },
+//   { id: 'id-2', name: 'Hermione Kline', phone: '443-89-12' },
+//   { id: 'id-1', name: 'Rosie Simpson', phone: '459-12-56' },
+// ];
+
+const STATUS = {
+  FULFILLED: 'fulfilled',
+  PENDING: 'pending',
+  REJECTED: 'rejected',
+};
+
+const actionGenerators = [fetchContacts, addContact, deleteContact];
+
+const getActionGeneratorsWithType = status =>
+  actionGenerators.map(generator => generator[status]);
 
 const contactsSlice = createSlice({
-  name: "contacts",
-  initialState: contactsInitialState,
-  reducers: {
-    addContact: {
-      reducer(state, action) {
-        state.push(action.payload);
-      },
-      prepare(name, number) {
-        return {
-          payload: {
-            id: nanoid(),
-            name: name.trim(),
-            number,
-          },
-        };
-      },
-    },
-    deleteContact(state, action) {
-      const index = state.findIndex(contact => contact.id === action.payload);
-      state.splice(index, 1);
-    },
+  name: 'contacts',
+  initialState: {
+    items: [],
+    isLoading: false,
+    error: null,
+  },
+
+  extraReducers: builder => {
+    builder
+      .addCase(fetchContacts.fulfilled, handleFetchContacts)
+      .addCase(addContact.fulfilled, handleAddContact)
+      .addCase(deleteContact.fulfilled, handleDeleteContact)
+      .addMatcher(
+        isAnyOf(...getActionGeneratorsWithType(STATUS.PENDING)),
+        handlePending
+      )
+      .addMatcher(
+        isAnyOf(...getActionGeneratorsWithType(STATUS.FULFILLED)),
+        handleFulfilled
+      )
+      .addMatcher(
+        isAnyOf(...getActionGeneratorsWithType(STATUS.REJECTED)),
+        handleRejected
+      );
   },
 });
 
-export const { addContact, deleteContact } = contactsSlice.actions;
+function handleFetchContacts(state, action) {
+  state.items = action.payload.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function handleAddContact(state, action) {
+  state.items = [action.payload, ...state.items].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+}
+function handleDeleteContact(state, action) {
+  state.items = state.items
+    .filter(item => item.id !== action.payload.id)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function handlePending(state, action) {
+  state.isLoading = true;
+  state.error = null;
+}
+
+function handleFulfilled(state, action) {
+  state.isLoading = false;
+  state.error = null;
+}
+
+function handleRejected(state, action) {
+  state.isLoading = false;
+  state.error = action.payload;
+}
+
 export const contactsReducer = contactsSlice.reducer;
